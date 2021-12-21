@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<DirectionalLayout
+    xmlns:ohos="http://schemas.huawei.com/res/ohos"
+    xmlns:swipecard="http://schemas.huawei.com/res/swipecard"
+    ohos:height="match_parent"
+    ohos:width="match_parent"
+    ohos:alignment="center"
+    ohos:background_element="#ddd"
+    ohos:orientation="vertical">
+
+    <in.arjsna.swipecardlib.SwipeCardView
+        ohos:id="$+id:card_stack_view"
+        ohos:height="0"
+        ohos:width="match_parent"
+        ohos:weight="1"
+        swipecard:rotation_degrees="15.5"
+        />
+
+
+    <DirectionalLayout
+        ohos:height="match_content"
+        ohos:width="match_parent"
+        ohos:bottom_margin="20vp"
+        ohos:orientation="horizontal">
+
+        <Button
+            ohos:id="$+id:left"
+            ohos:height="match_content"
+            ohos:width="0"
+            ohos:background_element="#000"
+            ohos:right_margin="10vp"
+            ohos:text="Throw Left"
+            ohos:text_color="#fff"
+            ohos:text_size="44fp"
+            ohos:weight="1"
+            />
+
+        <Button
+            ohos:id="$+id:right"
+            ohos:height="match_content"
+            ohos:width="0"
+            ohos:background_element="#000"
+            ohos:right_margin="10vp"
+            ohos:text="Throw right"
+            ohos:text_color="#fff"
+            ohos:text_size="44fp"
+            ohos:weight="1"
+            />
+
+        <Button
+            ohos:id="$+id:position"
+            ohos:height="match_content"
+            ohos:width="0"
+            ohos:background_element="#000"
+            ohos:right_margin="10vp"
+            ohos:text="position"
+            ohos:text_color="#fff"
+            ohos:text_size="44fp"
+            ohos:weight="1"
+            />
+    </DirectionalLayout>
+
+    <DirectionalLayout
+        ohos:height="match_content"
+        ohos:width="match_parent"
+        ohos:orientation="horizontal">
+
+        <Button
+            ohos:id="$+id:bottom"
+            ohos:height="match_content"
+            ohos:width="0"
+            ohos:background_element="#000"
+            ohos:right_margin="10vp"
+            ohos:text="Throw bottom"
+            ohos:text_color="#fff"
+            ohos:text_size="44fp"
+            ohos:weight="1"
+            />
+
+        <Button
+            ohos:id="$+id:top"
+            ohos:height="match_content"
+            ohos:width="0"
+            ohos:background_element="#000"
+            ohos:right_margin="10vp"
+            ohos:text="Throw top"
+            ohos:text_color="#fff"
+            ohos:text_size="44fp"
+            ohos:weight="1"
+            />
+
+        <Button
+            ohos:id="$+id:restart"
+            ohos:height="match_content"
+            ohos:width="0"
+            ohos:background_element="#000"
+            ohos:right_margin="10vp"
+            ohos:text="restart"
+            ohos:text_color="#fff"
+            ohos:text_size="44fp"
+            ohos:weight="1"
+            />
+    </DirectionalLayout>
+</DirectionalLayout>

@@ -1,32 +1,30 @@
 package in.arjsna.swipecardlib;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.graphics.PointF;
-import android.graphics.Rect;
-import android.util.Log;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.animation.AccelerateInterpolator;
-import android.view.animation.OvershootInterpolator;
+import ohos.agp.animation.Animator;
+import ohos.agp.components.Component;
+import ohos.agp.utils.Rect;
+import ohos.hiviewdfx.HiLog;
+import ohos.hiviewdfx.HiLogLabel;
+import ohos.multimodalinput.event.TouchEvent;
 
+import static in.arjsna.swipecardlib.Utils.rectContains;
 
-public class FlingCardListener implements View.OnTouchListener {
-
-    private static final String TAG = FlingCardListener.class.getSimpleName();
-
+/**
+ * FlingCardListener.
+ */
+public class FlingCardListener implements Component.TouchEventListener {
+    //#region parameters
     private static final int INVALID_POINTER_ID = -1;
 
     private final SwipeCardView parentView;
 
-    private Rect RECT_TOP;
+    private final Rect rectTop;
 
-    private Rect RECT_BOTTOM;
+    private final Rect rectBottom;
 
-    private Rect RECT_LEFT;
+    private final Rect rectLeft;
 
-    private Rect RECT_RIGHT;
+    private final Rect rectRight;
 
     private final float objectX;
 
@@ -48,83 +46,122 @@ public class FlingCardListener implements View.OnTouchListener {
 
     private final int parentHeight;
 
-    private float BASE_ROTATION_DEGREES;
+    private float baseRotationDegrees;
 
-    private float aPosX;
+    private float posX;
 
-    private float aPosY;
+    private float posY;
 
-    private float aDownTouchX;
+    private float downTouchX;
 
-    private float aDownTouchY;
+    private float downTouchY;
 
     // The active pointer is the one currently moving our object.
     private int mActivePointerId = INVALID_POINTER_ID;
 
-    private View frame = null;
+    private Component frame = null;
 
-    private final int TOUCH_ABOVE = 0;
+    private static final int TOUCH_ABOVE = 0;
 
-    private final int TOUCH_BELOW = 1;
+    private static final int TOUCH_BELOW = 1;
 
     private int touchPosition;
 
     private boolean isAnimationRunning = false;
 
-    private float MAX_COS = (float) Math.cos(Math.toRadians(45));
+    private static final float MAX_COS = (float) Math.cos(Math.toRadians(45));
 
+    //#endregion parameters
 
-    public FlingCardListener(SwipeCardView parent, View frame, Object itemAtPosition, FlingListener flingListener) {
+    public FlingCardListener(SwipeCardView parent,
+                             Component frame,
+                             Object itemAtPosition, FlingListener flingListener) {
         this(parent, frame, itemAtPosition, 15f, flingListener);
+        Utils.entry_log();
     }
 
-    public FlingCardListener(SwipeCardView parent, View frame, Object itemAtPosition, float rotation_degrees, FlingListener flingListener) {
+    /**
+     * FlingCardListener.
+     *
+     * @param parent          parent
+     * @param frame           frame
+     * @param itemAtPosition  itemAtPosition
+     * @param rotationDegrees rotationDegrees
+     * @param flingListener   flingListener
+     */
+    public FlingCardListener(SwipeCardView parent,
+                             Component frame,
+                             Object itemAtPosition,
+                             float rotationDegrees, FlingListener flingListener) {
         super();
+        Utils.entry_log();
         this.parentView = parent;
         this.frame = frame;
-        this.objectX = frame.getX();
-        this.objectY = frame.getY();
+        this.objectX = frame.getContentPositionX();
+        this.objectY = frame.getContentPositionY();
         this.objectH = frame.getHeight();
         this.objectW = frame.getWidth();
         this.halfWidth = objectW / 2f;
         this.halfHeight = objectH / 2f;
         this.dataObject = itemAtPosition;
-        this.parentWidth = ((ViewGroup) frame.getParent()).getWidth();
-        this.parentHeight = ((ViewGroup) frame.getParent()).getHeight();
-        this.BASE_ROTATION_DEGREES = rotation_degrees;
+        this.parentWidth = ((Component) frame.getComponentParent()).getWidth();
+        this.parentHeight = ((Component) frame.getComponentParent()).getHeight();
+        this.baseRotationDegrees = rotationDegrees;
         this.mFlingListener = flingListener;
-        this.RECT_TOP = new Rect((int) Math.max(frame.getLeft(), leftBorder()), 0, (int) Math.min(frame.getRight(), rightBorder()), (int) topBorder());
-        this.RECT_BOTTOM = new Rect((int) Math.max(frame.getLeft(), leftBorder()), (int) bottomBorder(), (int) Math.min(frame.getRight(), rightBorder()), parentHeight);
-        this.RECT_LEFT = new Rect(0, (int) Math.max(frame.getTop(), topBorder()), (int) leftBorder(), (int) Math.min(frame.getBottom(), bottomBorder()));
-        this.RECT_RIGHT = new Rect((int) rightBorder(), (int) Math.max(frame.getTop(), topBorder()), parentWidth, (int) Math.min(frame.getBottom(), bottomBorder()));
+        this.rectTop = new Rect(
+                (int) Math.max(frame.getLeft(), leftBorder()),
+                0,
+                (int) Math.min(frame.getRight(), rightBorder()),
+                (int) topBorder()
+        );
+        this.rectBottom = new Rect(
+                (int) Math.max(frame.getLeft(), leftBorder()),
+                (int) bottomBorder(),
+                (int) Math.min(frame.getRight(), rightBorder()),
+                parentHeight
+        );
+        this.rectLeft = new Rect(
+                0,
+                (int) Math.max(frame.getTop(), topBorder()),
+                (int) leftBorder(),
+                (int) Math.min(frame.getBottom(), bottomBorder())
+        );
+        this.rectRight = new Rect(
+                (int) rightBorder(),
+                (int) Math.max(frame.getTop(), topBorder()),
+                parentWidth,
+                (int) Math.min(frame.getBottom(), bottomBorder())
+        );
+
     }
 
 
-    public boolean onTouch(View view, MotionEvent event) {
-        switch (event.getAction() & MotionEvent.ACTION_MASK) {
-            case MotionEvent.ACTION_DOWN:
+    @Override
+    public boolean onTouchEvent(Component view, TouchEvent event) {
+        switch (event.getAction()) {
+            case TouchEvent.PRIMARY_POINT_DOWN: {
                 mActivePointerId = event.getPointerId(0);
                 float x = 0;
                 float y = 0;
                 boolean success = false;
                 try {
-                    x = event.getX(mActivePointerId);
-                    y = event.getY(mActivePointerId);
+                    x = event.getPointerPosition(mActivePointerId).getX();
+                    y = event.getPointerPosition(mActivePointerId).getY();
                     success = true;
                 } catch (IllegalArgumentException e) {
-                    Log.w(TAG, "Exception in onTouch(view, event) : " + mActivePointerId, e);
+                    // pass
                 }
                 if (success) {
                     // Remember where we started
-                    aDownTouchX = x;
-                    aDownTouchY = y;
+                    downTouchX = x;
+                    downTouchY = y;
                     //to prevent an initial jump of the magnifier, aposX and aPosY must
                     //have the values from the magnifier frame
-                    if (aPosX == 0) {
-                        aPosX = frame.getX();
+                    if (posX == 0) {
+                        posX = 0;
                     }
-                    if (aPosY == 0) {
-                        aPosY = frame.getY();
+                    if (posY == 0) {
+                        posY = 0;
                     }
 
                     if (y < objectH / 2) {
@@ -133,169 +170,226 @@ public class FlingCardListener implements View.OnTouchListener {
                         touchPosition = TOUCH_BELOW;
                     }
                 }
-                view.getParent().requestDisallowInterceptTouchEvent(true);
                 break;
+            }
 
-            case MotionEvent.ACTION_UP:
+            case TouchEvent.PRIMARY_POINT_UP: {
                 mActivePointerId = INVALID_POINTER_ID;
                 resetCardViewOnStack();
-                view.getParent().requestDisallowInterceptTouchEvent(false);
+                break;
+            }
+
+            case TouchEvent.OTHER_POINT_DOWN:
                 break;
 
-            case MotionEvent.ACTION_POINTER_DOWN:
-                break;
-
-            case MotionEvent.ACTION_POINTER_UP:
-                final int pointerIndex = (event.getAction() &
-                        MotionEvent.ACTION_POINTER_INDEX_MASK) >> MotionEvent.ACTION_POINTER_INDEX_SHIFT;
+            case TouchEvent.OTHER_POINT_UP: {
+                final int pointerIndex = (event.getAction());
                 final int pointerId = event.getPointerId(pointerIndex);
                 if (pointerId == mActivePointerId) {
                     final int newPointerIndex = pointerIndex == 0 ? 1 : 0;
-                    aDownTouchX = event.getX(newPointerIndex);
-                    aDownTouchY = event.getY(newPointerIndex);
+                    downTouchX = event.getPointerPosition(newPointerIndex).getX();
+                    downTouchY = event.getPointerPosition(newPointerIndex).getY();
                     mActivePointerId = event.getPointerId(newPointerIndex);
                 }
                 break;
+            }
 
-            case MotionEvent.ACTION_MOVE:
-                final int pointerIndexMove = event.findPointerIndex(mActivePointerId);
-                final float xMove = event.getX(pointerIndexMove);
-                final float yMove = event.getY(pointerIndexMove);
+            case TouchEvent.POINT_MOVE: {
+                final float xMove = event.getPointerPosition(mActivePointerId).getX();
+                final float yMove = event.getPointerPosition(mActivePointerId).getY();
 
-                final float dx = xMove - aDownTouchX;
-                final float dy = yMove - aDownTouchY;
-
-                aPosX += dx;
-                aPosY += dy;
+                final float dx = xMove - downTouchX;
+                final float dy = yMove - downTouchY;
+                // BUG: it is only incrementing so it is getting out of bound
+                posX += dx;
+                posY += dy;
 
                 // calculate the rotation degrees
-                float distobjectX = aPosX - objectX;
-                float rotation = BASE_ROTATION_DEGREES * 2.f * distobjectX / parentWidth;
+                float distobjectX = posX - objectX;
+                float rotation = baseRotationDegrees * 2.f * distobjectX / parentWidth;
                 if (touchPosition == TOUCH_BELOW) {
+                    Utils.entry_log();
                     rotation = -rotation;
                 }
-
-                frame.setX(aPosX);
-                frame.setY(aPosY);
+                frame.setContentPositionX(posX);
+                frame.setContentPositionY(posY);
                 frame.setRotation(rotation);
                 mFlingListener.onScroll(getScrollProgressPercent());
                 break;
+            }
 
-            case MotionEvent.ACTION_CANCEL: {
+            case TouchEvent.CANCEL: {
                 mActivePointerId = INVALID_POINTER_ID;
-                view.getParent().requestDisallowInterceptTouchEvent(false);
                 break;
             }
+            default:
+                break;
         }
+
         return true;
     }
 
     private float getScrollProgressPercent() {
+        Utils.entry_log();
         if (movedBeyondLeftBorder()) {
             return -1f;
         } else if (movedBeyondRightBorder()) {
             return 1f;
         } else {
-            float zeroToOneValue = (aPosX + halfWidth - leftBorder()) / (rightBorder() - leftBorder());
+            float zeroToOneValue = (posX + halfWidth - leftBorder()) / (rightBorder() - leftBorder());
             return zeroToOneValue * 2f - 1f;
         }
     }
 
-    private boolean resetCardViewOnStack() {
-        if (movedBeyondLeftBorder() && parentView.DETECT_LEFT_SWIPE) {
+    private void resetCardViewOnStack() {
+        Utils.entry_log();
+        if (movedBeyondLeftBorder() && parentView.detectLeftSwipe) {
+            HiLog.debug(LABEL_LOG, "resetCardViewOnStack: movedBeyondLeftBorder");
             // Left Swipe
             onSelectedX(true, getExitPoint(-objectW), 100);
             mFlingListener.onScroll(-1.0f);
-        } else if (movedBeyondRightBorder() && parentView.DETECT_RIGHT_SWIPE) {
+        } else if (movedBeyondRightBorder() && parentView.detectRightSwipe) {
+            HiLog.debug(LABEL_LOG, "resetCardViewOnStack: movedBeyondRightBorder");
             // Right Swipe
             onSelectedX(false, getExitPoint(parentWidth), 100);
             mFlingListener.onScroll(1.0f);
-        } else if(movedBeyondTopBorder() && parentView.DETECT_TOP_SWIPE){
+        } else if (movedBeyondTopBorder() && parentView.detectTopSwipe) {
+            HiLog.debug(LABEL_LOG, "resetCardViewOnStack: movedBeyondTopBorder");
             onSelectedY(true, getExitPointX(-objectH), 100);
             mFlingListener.onScroll(-1.0f);
-        } else if(movedBeyondBottomBorder() && parentView.DETECT_BOTTOM_SWIPE){
+        } else if (movedBeyondBottomBorder() && parentView.detectBottomSwipe) {
+            HiLog.debug(LABEL_LOG, "resetCardViewOnStack: movedBeyondBottomBorder");
             onSelectedY(false, getExitPointX(parentHeight), 100);
             mFlingListener.onScroll(1.0f);
-        }
-        else {
-            float abslMoveDistance = Math.abs(aPosX - objectX);
-            aPosX = 0;
-            aPosY = 0;
-            aDownTouchX = 0;
-            aDownTouchY = 0;
-            frame.animate()
+        } else {
+            HiLog.debug(LABEL_LOG, "resetCardViewOnStack: else");
+            final float abslMoveDistance = Math.abs(posX - objectX);
+            posX = 0;
+            posY = 0;
+            downTouchX = 0;
+            downTouchY = 0;
+            frame.createAnimatorProperty()
                     .setDuration(200)
-                    .setInterpolator(new OvershootInterpolator(1.5f))
-                    .x(objectX)
-                    .y(objectY)
-                    .rotation(0);
+                    .setCurveType(Animator.CurveType.OVERSHOOT)
+                    .moveToX(objectX)
+                    .moveToY(objectY)
+                    .rotate(0)
+                    .start();
             mFlingListener.onScroll(0.0f);
             if (abslMoveDistance < 4.0) {
+                Utils.entry_log();
                 mFlingListener.onClick(dataObject);
             }
         }
-        return false;
     }
 
 
     private boolean movedBeyondLeftBorder() {
-        int centerX = (int) (frame.getX() + halfWidth);
-        int centerY = (int) (frame.getY() + halfHeight);
-        return (RECT_LEFT.contains(centerX, centerY) || (centerX < RECT_LEFT.left && RECT_LEFT.contains(0, centerY)));
+
+        Utils.entry_log();
+        int centerX = (int) (frame.getContentPositionX() + halfWidth);
+        int centerY = (int) (frame.getContentPositionY() + halfHeight);
+        return (rectContains(rectLeft, centerX, centerY)
+                || (centerX < rectLeft.left
+                && rectContains(rectLeft, 0, centerY)));
     }
 
     private boolean movedBeyondRightBorder() {
-        int centerX = (int) (frame.getX() + halfWidth);
-        int centerY = (int) (frame.getY() + halfHeight);
-        return (RECT_RIGHT.contains(centerX, centerY) || (centerX > RECT_RIGHT.right && RECT_RIGHT.contains(RECT_RIGHT.left, centerY)));
+        Utils.entry_log();
+        int centerX = (int) (frame.getContentPositionX() + halfWidth);
+        int centerY = (int) (frame.getContentPositionY() + halfHeight);
+        return (rectContains(rectRight, centerX, centerY)
+                || (centerX > rectRight.right
+                && rectContains(rectRight, rectRight.left, centerY)));
     }
 
     private boolean movedBeyondBottomBorder() {
-        int centerX = (int) (frame.getX() + halfWidth);
-        int centerY = (int) (frame.getY() + halfHeight);
-        return (RECT_BOTTOM.contains(centerX, centerY) || (centerY > RECT_BOTTOM.bottom && RECT_BOTTOM.contains(centerX, RECT_BOTTOM.top)));
+        Utils.entry_log();
+        int centerX = (int) (frame.getContentPositionX() + halfWidth);
+        int centerY = (int) (frame.getContentPositionY() + halfHeight);
+        return (rectContains(rectBottom, centerX, centerY)
+                || (centerY > rectBottom.bottom
+                && rectContains(rectBottom, centerX, rectBottom.top)));
     }
 
+
     private boolean movedBeyondTopBorder() {
-        int centerX = (int) (frame.getX() + halfWidth);
-        int centerY = (int) (frame.getY() + halfHeight);
-        return (RECT_TOP.contains(centerX, centerY) || (centerY < RECT_TOP.top && RECT_TOP.contains(centerX, 0)));
+        int centerX = (int) (frame.getContentPositionX() + halfWidth);
+        int centerY = (int) (frame.getContentPositionY() + halfHeight);
+        return (rectContains(rectTop, centerX, centerY)
+                || (centerY < rectTop.top && rectContains(rectTop, centerX, 0)));
     }
 
     private float leftBorder() {
+        Utils.entry_log();
         return parentWidth / 4.f;
     }
 
     private float rightBorder() {
+        Utils.entry_log();
         return 3 * parentWidth / 4.f;
     }
 
     private float bottomBorder() {
+        Utils.entry_log();
         return 3 * parentHeight / 4.f;
     }
 
     private float topBorder() {
-        return parentHeight  / 4.f;
+        Utils.entry_log();
+        return parentHeight / 4.f;
     }
 
+    private static final HiLogLabel LABEL_LOG = new HiLogLabel(HiLog.LOG_APP, 0x00201, "-MainAbility-");
+
     private void onSelectedY(final boolean isTop, float exitX, int duration) {
+        Utils.entry_log();
         isAnimationRunning = true;
         float exitY;
         if (isTop) {
+            Utils.entry_log();
             exitY = -objectH - getRotationWidthOffset();
         } else {
             exitY = parentHeight + getRotationWidthOffset();
         }
 
-        this.frame.animate()
-                .setDuration(duration)
-                .setInterpolator(new AccelerateInterpolator())
-                .x(exitX)
-                .y(exitY)
-                .setListener(new AnimatorListenerAdapter() {
+        this.frame.createAnimatorProperty().setDuration(duration)
+                .setCurveType(Animator.CurveType.ACCELERATE)
+                .moveToX(exitX)
+                .moveToY(exitY)
+                .setStateChangedListener(new Animator.StateChangedListener() {
+                    //#region not used
+
                     @Override
-                    public void onAnimationEnd(Animator animation) {
+                    public void onStart(Animator animator) {
+
+                    }
+
+                    @Override
+                    public void onStop(Animator animator) {
+
+                    }
+
+                    @Override
+                    public void onCancel(Animator animator) {
+
+                    }
+
+                    @Override
+                    public void onPause(Animator animator) {
+
+                    }
+
+                    @Override
+                    public void onResume(Animator animator) {
+
+                    }
+                    //#endregion not used
+
+                    @Override
+                    public void onEnd(Animator animator) {
                         if (isTop) {
+                            Utils.entry_log();
                             mFlingListener.onCardExited();
                             mFlingListener.topExit(dataObject);
                         } else {
@@ -304,29 +398,61 @@ public class FlingCardListener implements View.OnTouchListener {
                         }
                         isAnimationRunning = false;
                     }
-                })
-                .rotation(getVerticalExitRotation(isTop));
+
+                }).rotate(getVerticalExitRotation(isTop)).start();
+
     }
 
     private void onSelectedX(final boolean isLeft,
                              float exitY, long duration) {
+        Utils.entry_log();
         isAnimationRunning = true;
         float exitX;
         if (isLeft) {
+            Utils.entry_log();
             exitX = -objectW - getRotationWidthOffset();
         } else {
             exitX = parentWidth + getRotationWidthOffset();
         }
-
-        this.frame.animate()
-                .setDuration(duration)
-                .setInterpolator(new AccelerateInterpolator())
-                .x(exitX)
-                .y(exitY)
-                .setListener(new AnimatorListenerAdapter() {
+        this.frame.createAnimatorProperty().setDuration(duration)
+                .setCurveType(Animator.CurveType.ACCELERATE)
+                .moveFromY(0)
+                .moveFromY(0)
+                .moveToX(exitX)
+                .moveToY(exitY)
+                .setStateChangedListener(new Animator.StateChangedListener() {
+                    //#region not used
                     @Override
-                    public void onAnimationEnd(Animator animation) {
+                    public void onStart(Animator animator) {
+
+                    }
+
+                    @Override
+                    public void onStop(Animator animator) {
+
+                    }
+
+                    @Override
+                    public void onCancel(Animator animator) {
+
+                    }
+
+                    @Override
+                    public void onPause(Animator animator) {
+
+                    }
+
+                    @Override
+                    public void onResume(Animator animator) {
+
+                    }
+                    //#endregion not used
+
+                    @Override
+                    public void onEnd(Animator animator) {
+                        Utils.entry_log();
                         if (isLeft) {
+                            Utils.entry_log();
                             mFlingListener.onCardExited();
                             mFlingListener.leftExit(dataObject);
                         } else {
@@ -335,63 +461,73 @@ public class FlingCardListener implements View.OnTouchListener {
                         }
                         isAnimationRunning = false;
                     }
-                })
-                .rotation(getHorizontalExitRotation(isLeft));
+
+                }).rotate(getHorizontalExitRotation(isLeft)).start();
     }
 
     void selectLeft() {
-        if (!isAnimationRunning)
+        Utils.entry_log();
+        if (!isAnimationRunning) {
             onSelectedX(true, objectY, 200);
+        }
     }
 
     void selectRight() {
-        if (!isAnimationRunning)
+        Utils.entry_log();
+        if (!isAnimationRunning) {
             onSelectedX(false, objectY, 200);
+        }
     }
 
     void selectTop() {
-        if (!isAnimationRunning)
+        Utils.entry_log();
+        if (!isAnimationRunning) {
             onSelectedY(true, objectX, 200);
+        }
     }
 
     void selectBottom() {
-        if (!isAnimationRunning)
+        Utils.entry_log();
+        if (!isAnimationRunning) {
             onSelectedY(false, objectX, 200);
+        }
     }
 
-
-    private float getExitPoint(int exitXPoint) {
+    private float getExitPoint(int exitPointX) {
+        Utils.entry_log();
         float[] x = new float[2];
         x[0] = objectX;
-        x[1] = aPosX;
+        x[1] = posX;
 
         float[] y = new float[2];
         y[0] = objectY;
-        y[1] = aPosY;
+        y[1] = posY;
 
         LinearRegression regression = new LinearRegression(x, y);
 
         //Your typical y = ax+b linear regression
-        return (float) regression.slope() * exitXPoint + (float) regression.intercept();
+        return (float) regression.slope() * exitPointX + (float) regression.intercept();
     }
 
-    private float getExitPointX(int exitYPoint) {
+    private float getExitPointX(int exitPointY) {
+        Utils.entry_log();
         float[] x = new float[2];
         x[0] = objectX;
-        x[1] = aPosX;
+        x[1] = posX;
 
         float[] y = new float[2];
         y[0] = objectY;
-        y[1] = aPosY;
+        y[1] = posY;
 
         LinearRegression regression = new LinearRegression(x, y);
 
         //Your typical x = (y - b) / a linear regression
-        return (float) ((exitYPoint - (float) regression.intercept()) / regression.slope());
+        return (float) ((exitPointY - (float) regression.intercept()) / regression.slope());
     }
 
     private float getHorizontalExitRotation(boolean isLeft) {
-        float rotation = BASE_ROTATION_DEGREES * 2.f * (parentWidth - objectX) / parentWidth;
+        Utils.entry_log();
+        float rotation = baseRotationDegrees * 2.f * (parentWidth - objectX) / parentWidth;
         if (touchPosition == TOUCH_BELOW) {
             rotation = -rotation;
         }
@@ -402,7 +538,8 @@ public class FlingCardListener implements View.OnTouchListener {
     }
 
     private float getVerticalExitRotation(boolean isTop) {
-        float rotation = BASE_ROTATION_DEGREES * 2.f * (parentHeight - objectY) / parentHeight;
+        Utils.entry_log();
+        float rotation = baseRotationDegrees * 2.f * (parentHeight - objectY) / parentHeight;
         if (touchPosition == TOUCH_BELOW) {
             rotation = -rotation;
         }
@@ -419,20 +556,24 @@ public class FlingCardListener implements View.OnTouchListener {
      * The below method calculates the width offset of the rotation.
      */
     private float getRotationWidthOffset() {
+        Utils.entry_log();
         return objectW / MAX_COS - objectW;
     }
 
 
     public void setRotationDegrees(float degrees) {
-        this.BASE_ROTATION_DEGREES = degrees;
+        Utils.entry_log();
+        this.baseRotationDegrees = degrees;
     }
 
     boolean isTouching() {
+        Utils.entry_log();
         return this.mActivePointerId != INVALID_POINTER_ID;
     }
 
     PointF getLastPoint() {
-        return new PointF(this.aPosX, this.aPosY);
+        Utils.entry_log();
+        return new PointF(this.posX, this.posY);
     }
 
     interface FlingListener {
